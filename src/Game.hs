@@ -1,6 +1,7 @@
 module Game where
 
 import qualified Options as Opts
+import qualified Selection as Sel
 import qualified Table
 import qualified Tile
 import qualified System.Random as Rand
@@ -9,7 +10,7 @@ import qualified Graphics.Gloss.Data.Color as Color
 import qualified Graphics.Gloss.Data.Picture as Pict
 import Graphics.Gloss.Interface.IO.Interact (Event(..), Key(..), SpecialKey(..), KeyState(..), MouseButton(..))
 
-data State = State {status :: GameStatus, gameTable :: Table.Table, selection :: Maybe Tile.Tile}
+data State = State {status :: GameStatus, gameTable :: Table.Table, selection :: Maybe Sel.Selection}
 data GameStatus = Running | Complete -- TODO!
 
 -- entry point
@@ -36,7 +37,7 @@ render st = case status st of
 
 renderSelection :: State -> Pict.Picture
 renderSelection st = case selection st of
-  Just tile -> Tile.render tile
+  Just sel -> Sel.render sel
   _ -> Pict.Blank
 
 -- event handling / state changing
@@ -44,29 +45,25 @@ handleEvent :: Event -> State -> State
 handleEvent (EventKey k ks _ pos) = case (k, ks) of
   (SpecialKey KeySpace, Up) -> rotateSelection
   (Char 'n', Up) -> newGame
-  (MouseButton LeftButton, Down) -> grabTile pos
-  (MouseButton LeftButton, Up) -> dropTile pos
+  (MouseButton LeftButton, Down) -> grabSelection pos
+  (MouseButton LeftButton, Up) -> dropSelection pos
   _ -> id
-handleEvent (EventMotion pos) = dragTile pos
+handleEvent (EventMotion pos) = dragSelection pos
 handleEvent _ = id
 
 rotateSelection :: State -> State
-rotateSelection st = case selection st of
-  Just tile -> st {selection = Just $ Tile.rotate tile}
-  _ -> st
+rotateSelection st = st {selection = Sel.rotate <$> selection st}
 
-dragTile :: Pict.Point -> State -> State
-dragTile pos st = case selection st of
-  Just tile -> st {selection = Just $ Tile.moveTo pos tile}
-  _ -> st
+dragSelection :: Pict.Point -> State -> State
+dragSelection pos st = st {selection = Sel.moveTo pos <$> selection st}
 
-grabTile :: Pict.Point -> State -> State
-grabTile pos st = st {gameTable = newTable, selection = newSel}
-  where (newTable, newSel) = Table.grab pos $ gameTable st
+grabSelection :: Pict.Point -> State -> State
+grabSelection pos st = st {gameTable = newTable, selection = Sel.make <$> newTile}
+  where (newTable, newTile) = Table.grab pos $ gameTable st
 
-dropTile :: Pict.Point -> State -> State
-dropTile point st = case selection st of
-  Just tile -> checkCompleted $ st {gameTable = Table.putTile tile point $ gameTable st, selection = Nothing}
+dropSelection :: Pict.Point -> State -> State
+dropSelection point st = case selection st of
+  Just sel -> checkCompleted $ st {gameTable = Table.putTile (Sel.tile sel) point $ gameTable st, selection = Nothing}
   _ -> st
 
 newGame :: State -> State
@@ -80,4 +77,4 @@ checkCompleted state
 
 -- stepping
 step :: Float -> State -> State
-step secs state = state {gameTable = Table.step secs $ gameTable state}
+step secs st = st {gameTable = Table.step secs $ gameTable st, selection = Sel.step secs <$> selection st}

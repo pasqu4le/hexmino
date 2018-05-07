@@ -12,24 +12,30 @@ empty size = Tile (Hex.Hexagon (0,0) size) (0,0,0)
 
 -- rendering functions
 render :: Tile -> Pict.Picture
-render tile = Pict.pictures [
-    Pict.color Color.white . Hex.render $ hexagon tile,
+render tile = Pict.translate x y $ renderCentered tile
+  where (x, y) = Hex.center $ hexagon tile
+
+renderRotated :: Float -> Tile -> Pict.Picture
+renderRotated rot tile = Pict.translate x y . Pict.rotate rot $ renderCentered tile
+  where (x, y) = Hex.center $ hexagon tile
+
+renderCentered :: Tile -> Pict.Picture
+renderCentered tile = Pict.pictures [
+    Pict.color Color.white . Hex.renderCentered $ hexagon tile,
     Pict.color Color.black $ renderLines tile,
     Pict.color Color.black $ renderFaces tile
   ]
 
 renderLines :: Tile -> Pict.Picture
-renderLines Tile {hexagon = hex} = Pict.translate x y lns
+renderLines Tile {hexagon = hex} = Pict.pictures lns
   where
-    (x, y) = Hex.center hex
     (_: border) = take 4 . Hex.hexagonPath $ Hex.radius hex
     faceLn = Pict.line ((0,0):border)
-    lns = Pict.pictures . zipWith Pict.rotate facesRotations $ replicate 3 faceLn
+    lns = zipWith Pict.rotate facesRotations $ replicate 3 faceLn
 
 renderFaces :: Tile -> Pict.Picture
-renderFaces Tile {faces = (a,b,c), hexagon = hex} = Pict.translate x y $ Pict.pictures fcs
+renderFaces Tile {faces = (a,b,c), hexagon = hex} = Pict.pictures fcs
   where
-    (x, y) = Hex.center hex
     fcs = zipWith Pict.rotate facesRotations $ map (renderFace (Hex.radius hex)) [a,b,c]
 
 renderFace :: Float -> Int -> Pict.Picture

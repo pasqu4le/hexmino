@@ -6,7 +6,11 @@ data Hexagon = Hexagon {center :: Pict.Point, radius :: Float} deriving (Show)
 
 -- rendering functions
 render :: Hexagon -> Pict.Picture
-render Hexagon {center = (x,y), radius = r} = Pict.translate x y $ hexagonSolid r
+render hex = Pict.translate x y $ renderCentered hex
+  where (x, y) = center hex
+
+renderCentered :: Hexagon -> Pict.Picture
+renderCentered = hexagonSolid . radius
 
 hexagonSolidPointy :: Float -> Pict.Picture
 hexagonSolidPointy = Pict.rotate 30 . hexagonSolid

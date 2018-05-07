@@ -4,34 +4,44 @@ import qualified Options as Opts
 import qualified Selection as Sel
 import qualified Table
 import qualified Tile
+
+import Data.Function (on)
 import qualified System.Random as Rand
+import qualified System.Exit as Exit
 import qualified Graphics.Gloss as Gloss
 import qualified Graphics.Gloss.Data.Color as Color
 import qualified Graphics.Gloss.Data.Picture as Pict
-import Graphics.Gloss.Interface.IO.Interact (Event(..), Key(..), SpecialKey(..), KeyState(..), MouseButton(..))
+import Graphics.Gloss.Interface.IO.Game (playIO, Event(..), Key(..), SpecialKey(..), KeyState(..), MouseButton(..))
 
-data State = State {status :: GameStatus, gameTable :: Table.Table, selection :: Maybe Sel.Selection}
+data State = State {status :: GameStatus, gameTable :: Table.Table, selection :: Maybe Sel.Selection, winScale :: Float}
 data GameStatus = Running | Complete -- TODO!
+
+-- scaling from this; NOTE: Game keeps track of window scaling, everything else will assume no scaling
+standardSize :: (Int, Int)
+standardSize = (640, 480)
+
+scalePoint :: Pict.Point -> Float -> Pict.Point
+scalePoint (x, y) factor = (x / factor, y / factor)
 
 -- entry point
 run :: Opts.Options -> IO ()
 run opts = do
   gen <- Rand.getStdGen
-  Gloss.play window background (Opts.fps opts) (initialState gen) render handleEvent step
+  playIO window background (Opts.fps opts) (initialState gen) render handleEvent step
 
 -- gloss-starting functions
 window :: Gloss.Display
-window = Gloss.InWindow "Hexmino" (640, 480) (50,50)
+window = Gloss.InWindow "Hexmino" standardSize (50,50)
 
 background :: Color.Color
 background = Color.white
 
 initialState :: Rand.StdGen -> State
-initialState gen = State {status = Complete, gameTable = Table.empty gen, selection = Nothing}
+initialState gen = State {status = Complete, gameTable = Table.empty gen, selection = Nothing, winScale = 1}
 
 -- rendering functions
-render :: State -> Pict.Picture
-render st = case status st of
+render :: State -> IO Pict.Picture
+render st = return . Pict.scale (winScale st) (winScale st) $ case status st of
   Running -> Pict.pictures [Table.render $ gameTable st, renderSelection st]
   _ -> Pict.Blank
 
@@ -41,15 +51,29 @@ renderSelection st = case selection st of
   _ -> Pict.Blank
 
 -- event handling / state changing
-handleEvent :: Event -> State -> State
+handleEvent :: Event -> State -> IO State
 handleEvent (EventKey k ks _ pos) = case (k, ks) of
-  (SpecialKey KeySpace, Up) -> rotateSelection
-  (Char 'n', Up) -> newGame
-  (MouseButton LeftButton, Down) -> grabSelection pos
-  (MouseButton LeftButton, Up) -> dropSelection pos
-  _ -> id
-handleEvent (EventMotion pos) = dragSelection pos
-handleEvent _ = id
+  (SpecialKey KeyEsc, Up) -> close
+  (SpecialKey KeySpace, Up) -> return . rotateSelection
+  (Char 'n', Up) -> return . newGame
+  (MouseButton LeftButton, Down) -> withScaledPoint grabSelection pos
+  (MouseButton LeftButton, Up) -> withScaledPoint dropSelection pos
+  _ -> return
+handleEvent (EventMotion pos) = withScaledPoint dragSelection pos
+handleEvent (EventResize newSize) = return . changeScale newSize
+
+close :: State -> IO State
+close _ = Exit.exitSuccess
+
+changeScale :: (Int, Int) -> State -> State
+changeScale (w, h) state = state {winScale = newScale}
+  where 
+    (dw, dh) = standardSize
+    newScale = min (floatDiv w dw) (floatDiv h dh)
+
+withScaledPoint :: (Pict.Point -> State -> State) -> Pict.Point -> State -> IO State
+withScaledPoint func point state = return $ func scPoint state
+  where scPoint = scalePoint point $ winScale state
 
 rotateSelection :: State -> State
 rotateSelection st = st {selection = Sel.rotate <$> selection st}
@@ -76,5 +100,9 @@ checkCompleted state
   where table = gameTable state
 
 -- stepping
-step :: Float -> State -> State
-step secs st = st {gameTable = Table.step secs $ gameTable st, selection = Sel.step secs <$> selection st}
+step :: Float -> State -> IO State
+step secs st = return $ st {gameTable = Table.step secs $ gameTable st, selection = Sel.step secs <$> selection st}
+
+-- utils
+floatDiv :: Int -> Int -> Float
+floatDiv = (/) `on` fromIntegral

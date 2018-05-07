@@ -10,7 +10,7 @@ name:                hexmino
 -- PVP summary:      +-+------- breaking API changes
 --                   | | +----- non-breaking API additions
 --                   | | | +--- code changes with no API change
-version:             0.1.0.0
+version:             0.1.0.1
 
 -- A short (one-line) description of the package.
 synopsis:            A small game based on domino-like hexagonal tiles
@@ -68,7 +68,7 @@ executable hexmino
   -- other-extensions:
 
   -- Other library packages from which modules are imported.
-  build-depends:       base >=4.10 && <4.11,
+  build-depends:       base >=4.11 && <4.12,
                        gloss >=1.12 && <1.13,
                        containers >=0.5.10 && <0.5.12,
                        random >=1.1 && <1.2,

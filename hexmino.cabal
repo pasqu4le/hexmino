@@ -61,6 +61,7 @@ executable hexmino
                        TileList
                        Tile
                        Hex
+                       Options
 
   -- LANGUAGE extensions used by modules in this package.
   -- other-extensions:
@@ -69,7 +70,8 @@ executable hexmino
   build-depends:       base >=4.10 && <4.11,
                        gloss >=1.12 && <1.13,
                        containers >=0.5.10 && <0.5.12,
-                       random >=1.1 && <1.2
+                       random >=1.1 && <1.2,
+                       optparse-applicative >=0.14 && <0.15
 
   -- Directories containing source files.
   hs-source-dirs:      src

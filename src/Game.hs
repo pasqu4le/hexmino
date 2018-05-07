@@ -1,5 +1,6 @@
 module Game where
 
+import qualified Options as Opts
 import qualified Table
 import qualified Tile
 import qualified System.Random as Rand
@@ -12,10 +13,10 @@ data State = State {status :: GameStatus, gameTable :: Table.Table, selection ::
 data GameStatus = Running | Complete -- TODO!
 
 -- entry point
-run :: IO ()
-run = do
+run :: Opts.Options -> IO ()
+run opts = do
   gen <- Rand.getStdGen
-  Gloss.play window background fps (initialState gen) render handleEvent step
+  Gloss.play window background (Opts.fps opts) (initialState gen) render handleEvent step
 
 -- gloss-starting functions
 window :: Gloss.Display
@@ -23,9 +24,6 @@ window = Gloss.InWindow "Hexmino" (640, 480) (50,50)
 
 background :: Color.Color
 background = Color.white
-
-fps :: Int
-fps = 60
 
 initialState :: Rand.StdGen -> State
 initialState gen = State {status = Complete, gameTable = Table.empty gen, selection = Nothing}

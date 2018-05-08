@@ -15,8 +15,8 @@ empty gen = Table {tileGrid = Grid.empty 3 38, tileList = TileList.empty, randGe
 
 -- displacements; NOTE: Table keeps track of the grid and list displacement, so both can assume they are centered
 gridX, listX :: Float
-gridX = -60
-listX = 260
+gridX = -120
+listX = 230
 
 -- rendering functions
 render :: Table -> Pict.Picture
@@ -33,9 +33,9 @@ renderGridSpace table = Pict.pictures [
 
 renderListSpace :: Table -> Pict.Picture
 renderListSpace table = Pict.pictures [
-    Pict.color Color.black $ cutRectangleSolid 110 460,
-    Pict.color rugColor $ cutRectangleSolid 100 450,
-    Pict.translate 0 175 . Pict.color Color.black $ Pict.circleSolid 45,
+    Pict.color Color.black $ cutRectangleSolid 220 460,
+    Pict.color rugColor $ cutRectangleSolid 210 450,
+    Pict.translate 0 175 . Pict.color Color.black $ cutRectangleSolid 200 90,
     TileList.render $ tileList table
   ]
 

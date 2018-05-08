@@ -18,7 +18,7 @@ data GameStatus = Running | Complete -- TODO!
 
 -- scaling from this; NOTE: Game keeps track of window scaling, everything else will assume no scaling
 standardSize :: (Int, Int)
-standardSize = (640, 480)
+standardSize = (700, 480)
 
 scalePoint :: Pict.Point -> Float -> Pict.Point
 scalePoint (x, y) factor = (x / factor, y / factor)
@@ -43,7 +43,7 @@ initialState gen = State {status = Complete, gameTable = Table.empty gen, select
 render :: State -> IO Pict.Picture
 render st = return . Pict.scale (winScale st) (winScale st) $ case status st of
   Running -> Pict.pictures [Table.render $ gameTable st, renderSelection st]
-  _ -> Pict.Blank
+  Complete -> Pict.pictures [Table.render $ gameTable st]
 
 renderSelection :: State -> Pict.Picture
 renderSelection st = case selection st of
@@ -52,18 +52,26 @@ renderSelection st = case selection st of
 
 -- event handling / state changing
 handleEvent :: Event -> State -> IO State
-handleEvent (EventKey k ks _ pos) = case (k, ks) of
-  (SpecialKey KeyEsc, Up) -> close
+handleEvent (EventKey (SpecialKey KeyEsc) Up _ _) _ = Exit.exitSuccess
+handleEvent (EventResize newSize) state = return $ changeScale newSize state
+handleEvent ev state = case status state of
+  Running -> handleRunning ev state
+  Complete -> handleComplete ev state
+
+handleComplete :: Event -> State -> IO State
+handleComplete (EventKey k ks _ pos) = case (k, ks) of
+  (SpecialKey KeyEnter, Up) -> return . newGame
+  _ -> return
+handleComplete _ = return
+
+handleRunning :: Event -> State -> IO State
+handleRunning (EventKey k ks _ pos) = case (k, ks) of
   (SpecialKey KeySpace, Up) -> return . rotateSelection
-  (Char 'n', Up) -> return . newGame
   (MouseButton LeftButton, Down) -> withScaledPoint grabSelection pos
   (MouseButton LeftButton, Up) -> withScaledPoint dropSelection pos
   _ -> return
-handleEvent (EventMotion pos) = withScaledPoint dragSelection pos
-handleEvent (EventResize newSize) = return . changeScale newSize
-
-close :: State -> IO State
-close _ = Exit.exitSuccess
+handleRunning (EventMotion pos) = withScaledPoint dragSelection pos
+handleRunning _ = return
 
 changeScale :: (Int, Int) -> State -> State
 changeScale (w, h) state = state {winScale = newScale}

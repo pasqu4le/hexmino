@@ -17,8 +17,8 @@ newtype Offset = Offset (Int, Int) deriving (Eq, Ord, Show)
 newtype Cubic = Cubic (Int, Int, Int) deriving (Eq, Ord, Show)
 
 -- creation functions
-empty :: Int -> Float -> TileGrid
-empty rg ts = TileGrid {tileMap = Map.empty, range = rg, tileSize = ts}
+empty :: Int -> TileGrid
+empty rg = TileGrid {tileMap = Map.empty, range = rg, tileSize = rangeToSize rg}
 
 newGame :: TileGrid -> Rand.StdGen -> (TileGrid, [Tile.Tile], Rand.StdGen)
 newGame grid gen = (clear grid, lst, lastGen)
@@ -92,9 +92,13 @@ isCompleted grid
   | otherwise = False
 
 clear :: TileGrid -> TileGrid
-clear grid = empty (range grid) (tileSize grid)
+clear = empty . range
 
 -- utility functions
+rangeToSize :: Int -> Float
+rangeToSize n = 418 / (2 * (fn+1) + fn)
+  where fn = fromIntegral n
+
 indexIsEmpty :: Axial -> TileGrid -> Bool
 indexIsEmpty idx = Map.notMember idx . tileMap
 

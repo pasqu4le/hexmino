@@ -3,36 +3,42 @@ module TileList where
 import qualified Tile
 import qualified Hex
 import qualified Graphics.Gloss.Data.Picture as Pict
+import qualified Graphics.Gloss.Data.Color as Color
 
 -- a stack of tiles and their destination (if they need to move)
-type TileList = [(Tile.Tile, Maybe Pict.Point)]
+data TileList = TileList {tiles :: [Tile.Tile], destinations :: [Maybe Pict.Point], level :: Int} deriving Show
 
 -- creation
 empty :: TileList
-empty = fromList []
+empty = fromList 0 []
 
-fromList :: [Tile.Tile] -> TileList
-fromList tiles = reposition . zip (map (Tile.moveTo (0,spacing*2)) tiles) $ repeat Nothing
+fromList :: Int -> [Tile.Tile] -> TileList
+fromList lvl lst = reposition $ TileList {tiles = tls, destinations = [], level = lvl}
+  where tls = map (Tile.moveTo (0, topPos lvl)) lst
 
 -- rendering
 render :: TileList -> Pict.Picture
-render lst = Pict.pictures . map (Tile.render . fst) $ take 5 lst
+render TileList {tiles = tls, level = lvl} = Pict.pictures . (renderHole lvl :) . map Tile.render $ take (lvl*2) tls
+
+renderHole :: Int -> Pict.Picture
+renderHole lvl = Pict.translate 0 (topPos lvl) . Pict.color Color.black $ Hex.hexagonRect 200 (spacing lvl)
 
 --manipulation
 reposition :: TileList -> TileList
-reposition lst = zip (map fst visible) positions ++ hidden
-  where
-    (visible, hidden) = splitAt 5 lst
-    positions = map Just . zip (repeat 0) $ map (*spacing) [-2..]
+reposition tLst = tLst {destinations = take (lvl * 2) dests}
+  where 
+    lvl = level tLst
+    posMap = (topPos lvl +) . (spacing lvl *) . fromIntegral
+    dests = map Just . zip (repeat 0) $ map posMap [1-(lvl*2)..0]
 
 putTile :: Tile.Tile -> TileList -> TileList
-putTile tile = reposition . ((tile, Nothing) :)
+putTile tile tLst = reposition $ tLst {tiles = tile : tiles tLst}
 
 grab :: Pict.Point -> TileList -> (TileList, Maybe Tile.Tile)
-grab point lst = (reposition $ zip tls (repeat Nothing) ++ hidden, sel)
+grab point tLst = (reposition $ tLst {tiles = tls ++ hidden}, sel)
     where
-      (visible, hidden) = splitAt 5 lst
-      (tls, sel) = grabFromVisible point $ map fst visible
+      (visible, hidden) = splitAt (2 * level tLst) $ tiles tLst
+      (tls, sel) = grabFromVisible point visible
 
 grabFromVisible :: Pict.Point -> [Tile.Tile] -> ([Tile.Tile], Maybe Tile.Tile)
 grabFromVisible _ [] = ([], Nothing)
@@ -42,12 +48,15 @@ grabFromVisible pos (tile:tiles)
 
 -- stepping
 step :: Float -> TileList -> TileList
-step secs lst = map (stepTile secs) visible ++ hidden
+step secs tLst = tLst {tiles = tls, destinations = dests}
   where
-    (visible, hidden) = splitAt 5 lst
+    (visible, hidden) = splitAt (2 * level tLst) $ tiles tLst
+    movedTiles = zipWith (stepTile secs) visible $ destinations tLst
+    tls = map fst movedTiles ++ hidden
+    dests = map snd movedTiles
 
-stepTile :: Float -> (Tile.Tile, Maybe Pict.Point) -> (Tile.Tile, Maybe Pict.Point)
-stepTile secs (tile, dest) = case dest of
+stepTile :: Float -> Tile.Tile -> Maybe Pict.Point -> (Tile.Tile, Maybe Pict.Point)
+stepTile secs tile dest = case dest of
   Just pos -> moveTile secs tile pos
   Nothing -> (tile, dest)
 
@@ -62,5 +71,8 @@ moveTile secs tile (x,y)
     (xd, yd) = ((x-xt) / distance, (y-yt) / distance) -- direction
     toCover = max 10 (secs * 15 * distance) -- distance to cover
 
-spacing :: Float
-spacing = 88
+topPos :: Int -> Float
+topPos lvl = 220 - (spacing lvl) / 2
+
+spacing :: Int -> Float
+spacing lvl = 440 / (2 * fromIntegral lvl)

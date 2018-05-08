@@ -13,7 +13,8 @@ import qualified Graphics.Gloss.Data.Color as Color
 import qualified Graphics.Gloss.Data.Picture as Pict
 import Graphics.Gloss.Interface.IO.Game (playIO, Event(..), Key(..), SpecialKey(..), KeyState(..), MouseButton(..))
 
-data State = State {status :: GameStatus, gameTable :: Table.Table, selection :: Maybe Sel.Selection, winScale :: Float}
+data State = State {status :: GameStatus, level :: GameLevel, gameTable :: Table.Table, selection :: Maybe Sel.Selection, winScale :: Float}
+data GameLevel = Beginner | Average | Expert deriving (Show, Enum, Bounded)
 data GameStatus = Running | Complete -- TODO!
 
 -- scaling from this; NOTE: Game keeps track of window scaling, everything else will assume no scaling
@@ -37,7 +38,7 @@ background :: Color.Color
 background = Color.white
 
 initialState :: Rand.StdGen -> State
-initialState gen = State {status = Complete, gameTable = Table.empty gen, selection = Nothing, winScale = 1}
+initialState gen = State {status = Complete, level = Average, gameTable = Table.empty gen, selection = Nothing, winScale = 1}
 
 -- rendering functions
 render :: State -> IO Pict.Picture
@@ -99,7 +100,7 @@ dropSelection point st = case selection st of
   _ -> st
 
 newGame :: State -> State
-newGame state = state {status = Running, gameTable = Table.newGame $ gameTable state}
+newGame state = state {status = Running, gameTable = Table.newGame (levelNum state) $ gameTable state}
 
 checkCompleted :: State -> State
 checkCompleted state
@@ -114,3 +115,6 @@ step secs st = return $ st {gameTable = Table.step secs $ gameTable st, selectio
 -- utils
 floatDiv :: Int -> Int -> Float
 floatDiv = (/) `on` fromIntegral
+
+levelNum :: State -> Int
+levelNum = (1+) . fromEnum . level

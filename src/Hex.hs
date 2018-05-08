@@ -24,6 +24,15 @@ hexagonPath r = [(-r, 0), (-rx, ry), (rx, ry), (r, 0), (rx, -ry), (-rx, -ry)]
     rx = r / 2
     ry = heightFromRadius r / 2
 
+hexagonRect :: Float -> Float -> Pict.Picture
+hexagonRect w h = Pict.polygon [(-sw,hh),(-hw,sh),(-hw,-sh),(-sw,-hh),(sw,-hh),(hw,-sh),(hw,sh),(sw,hh)]
+  where
+    c = w / 10
+    hw = w / 2
+    hh = h / 2
+    sw = hw - c
+    sh = hh - c
+
 -- manupulation functions
 moveTo :: Pict.Point -> Hexagon -> Hexagon
 moveTo point hex = hex {center = point}

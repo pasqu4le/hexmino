@@ -11,7 +11,7 @@ import qualified Graphics.Gloss.Data.Picture as Pict
 data Table = Table {tileGrid :: Grid.TileGrid, tileList :: TileList.TileList, randGen :: Rand.StdGen} deriving Show
 
 empty :: Rand.StdGen -> Table
-empty gen = Table {tileGrid = Grid.empty 3 38, tileList = TileList.empty, randGen = gen}
+empty gen = Table {tileGrid = Grid.empty 0, tileList = TileList.empty, randGen = gen}
 
 -- displacements; NOTE: Table keeps track of the grid and list displacement, so both can assume they are centered
 gridX, listX :: Float
@@ -33,28 +33,18 @@ renderGridSpace table = Pict.pictures [
 
 renderListSpace :: Table -> Pict.Picture
 renderListSpace table = Pict.pictures [
-    Pict.color Color.black $ cutRectangleSolid 220 460,
-    Pict.color rugColor $ cutRectangleSolid 210 450,
-    Pict.translate 0 175 . Pict.color Color.black $ cutRectangleSolid 200 90,
+    Pict.color Color.black $ Hex.hexagonRect 220 460,
+    Pict.color rugColor $ Hex.hexagonRect 210 450,
     TileList.render $ tileList table
   ]
-
-cutRectangleSolid :: Float -> Float -> Pict.Picture
-cutRectangleSolid w h = Pict.polygon [(-sw,hh),(-hw,sh),(-hw,-sh),(-sw,-hh),(sw,-hh),(hw,-sh),(hw,sh),(sw,hh)]
-  where
-    c = w / 10
-    hw = w / 2
-    hh = h / 2
-    sw = hw - c
-    sh = hh - c
 
 rugColor :: Color.Color
 rugColor = Color.dark $ Color.dark Color.chartreuse
 
 -- manipulation functions
-newGame :: Table -> Table
-newGame table = table {tileGrid = grid, tileList = TileList.fromList lst, randGen = newGen}
-  where (grid, lst, newGen) = Grid.newGame (tileGrid table) $ randGen table
+newGame :: Int -> Table -> Table
+newGame level table = table {tileGrid = grid, tileList = TileList.fromList level lst, randGen = newGen}
+  where (grid, lst, newGen) = Grid.newGame (Grid.empty level) $ randGen table
 
 clear :: Table -> Table
 clear = empty . randGen

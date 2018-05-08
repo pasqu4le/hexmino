@@ -18,7 +18,9 @@ fromList lvl lst = reposition $ TileList {tiles = tls, destinations = [], level 
 
 -- rendering
 render :: TileList -> Pict.Picture
-render TileList {tiles = tls, level = lvl} = Pict.pictures . (renderHole lvl :) . map Tile.render $ take (lvl*2) tls
+render tLst = case level tLst of
+  0 -> Pict.blank
+  lvl -> Pict.pictures . (renderHole lvl :) . map Tile.render $ take (lvl*2) $ tiles tLst
 
 renderHole :: Int -> Pict.Picture
 renderHole lvl = Pict.translate 0 (topPos lvl) . Pict.color Color.black $ Hex.hexagonRect 200 (spacing lvl)

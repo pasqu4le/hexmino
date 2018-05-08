@@ -57,7 +57,9 @@ rotateAndTake (n, tile) = (!! mod n 3) $ iterate Tile.rotate tile
 
 -- rendering functions
 render :: Color.Color -> TileGrid -> Pict.Picture
-render col grid = Pict.pictures . map (renderIndex col grid) . everyIndex $ range grid
+render col grid = case range grid of
+  0 -> Pict.color col $ Hex.hexagonSolidPointy 230
+  rg -> Pict.pictures . map (renderIndex col grid) $ everyIndex rg
 
 renderIndex :: Color.Color -> TileGrid -> Axial ->  Pict.Picture
 renderIndex col grid axi = case Map.lookup axi $ tileMap grid of

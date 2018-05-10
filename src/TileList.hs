@@ -23,7 +23,7 @@ render tLst = case level tLst of
   lvl -> Pict.pictures . (renderHole lvl :) . map Tile.render $ take (lvl*2) $ tiles tLst
 
 renderHole :: Int -> Pict.Picture
-renderHole lvl = Pict.translate 0 (topPos lvl) . Pict.color Color.black $ Hex.hexagonRect 200 (spacing lvl)
+renderHole lvl = Pict.translate 0 (topPos lvl) . Pict.color Color.black $ Hex.rectangleBlunt 200 (spacing lvl)
 
 --manipulation
 reposition :: TileList -> TileList

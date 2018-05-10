@@ -4,25 +4,37 @@ import qualified Options as Opts
 import qualified Selection as Sel
 import qualified Table
 import qualified Tile
+import qualified Widgets as Wid
 
+import Data.Char (isLetter)
 import Data.Function (on)
 import qualified System.Random as Rand
 import qualified System.Exit as Exit
 import qualified Graphics.Gloss as Gloss
 import qualified Graphics.Gloss.Data.Color as Color
 import qualified Graphics.Gloss.Data.Picture as Pict
+import qualified Graphics.Gloss.Data.Point.Arithmetic as PArith
 import Graphics.Gloss.Interface.IO.Game (playIO, Event(..), Key(..), SpecialKey(..), KeyState(..), MouseButton(..))
 
-data State = State {status :: GameStatus, level :: GameLevel, gameTable :: Table.Table, selection :: Maybe Sel.Selection, winScale :: Float}
-data GameLevel = Beginner | Average | Expert deriving (Show, Enum, Bounded)
-data GameStatus = SplashScreen | SelectLevel | Running | Complete | Info
+data State = State {
+    status :: GameStatus,
+    level :: GameLevel,
+    duration :: String, -- TODO: time tracking
+    topTen :: [String], -- TODO: Scores list
+    player :: String,
+    gameTable :: Table.Table,
+    selection :: Maybe Sel.Selection,
+    winScale :: Float
+  }
+data GameLevel = Beginner | Average | Expert deriving (Show, Eq, Enum, Bounded)
+data GameStatus = SplashScreen | Running | Complete | Info
 
 -- scaling from this; NOTE: Game keeps track of window scaling, everything else will assume no scaling
 standardSize :: (Int, Int)
 standardSize = (700, 480)
 
 scalePoint :: Pict.Point -> Float -> Pict.Point
-scalePoint (x, y) factor = (x / factor, y / factor)
+scalePoint point factor = (1/factor) PArith.* point
 
 -- entry point
 run :: Opts.Options -> IO ()
@@ -38,13 +50,23 @@ background :: Color.Color
 background = Color.white
 
 initialState :: Rand.StdGen -> State
-initialState gen = State {status = SplashScreen, level = Average, gameTable = Table.empty gen, selection = Nothing, winScale = 1}
+initialState gen = State {
+    status = SplashScreen,
+    level = Beginner,
+    duration = "01:12:51",
+    topTen = replicate 10 "PAS 01:12:51 X",
+    player = "PAS",
+    gameTable = Table.empty gen,
+    selection = Nothing,
+    winScale = 1}
 
 -- rendering functions
 render :: State -> IO Pict.Picture
 render st = returnScaled st . (Table.render (gameTable st) :) $ case status st of
-  Running -> [renderSelection st]
-  _ -> []
+  SplashScreen -> [Wid.renderBanner, Wid.renderGameSelector $ level st, Wid.renderTopTen $ topTen st]
+  Running -> [Wid.renderTime $ duration st, renderSelection st]
+  Complete -> [Wid.renderTimeRes $ duration st, Wid.renderNameSelector $ player st, Wid.renderTopTen $ topTen st]
+  Info -> [Wid.renderBanner, Wid.renderInfo, Wid.renderTopTen $ topTen st]
 
 returnScaled :: State -> [Pict.Picture] -> IO Pict.Picture
 returnScaled st = return . Pict.scale (winScale st) (winScale st) . Pict.pictures
@@ -58,12 +80,17 @@ renderSelection st = case selection st of
 handleEvent :: Event -> State -> IO State
 handleEvent (EventKey (SpecialKey KeyEsc) Up _ _) _ = Exit.exitSuccess
 handleEvent (EventResize newSize) state = return $ changeScale newSize state
-handleEvent ev state = case status state of
-  SplashScreen -> handleSplash ev state
-  SelectLevel -> handleSelect ev state
-  Running -> handleRunning ev state
-  Complete -> handleComplete ev state
-  Info -> handleInfo ev state
+handleEvent ev st = let se = scaledEvent ev (winScale st) in case status st of
+  SplashScreen -> handleSplash se st
+  Running -> handleRunning se st
+  Complete -> handleComplete se st
+  Info -> handleInfo se st
+
+scaledEvent :: Event -> Float ->  Event
+scaledEvent ev factor = case ev of
+  EventKey k ks mods point -> EventKey k ks mods $ scalePoint point factor
+  EventMotion point -> EventMotion $ scalePoint point factor
+  _ -> ev  
 
 changeScale :: (Int, Int) -> State -> State
 changeScale (w, h) state = state {winScale = newScale}
@@ -73,15 +100,11 @@ changeScale (w, h) state = state {winScale = newScale}
 
 handleSplash :: Event -> State -> IO State
 handleSplash (EventKey k ks _ pos) st = case (k, ks) of
-  (SpecialKey KeyEnter, Up) -> return $ st {status = SelectLevel}
+  (SpecialKey KeyEnter, Up) -> return $ newGame st
+  (SpecialKey KeyRight, Up) -> return $ toNextLevel st
+  (SpecialKey KeyLeft, Up) -> return $ toPreviousLevel st
   _ -> return st
 handleSplash _ st = return st
-
-handleSelect :: Event -> State -> IO State
-handleSelect (EventKey k ks _ pos) = case (k, ks) of
-  (SpecialKey KeyEnter, Up) -> return . newGame
-  _ -> return
-handleSelect _ = return
 
 handleInfo :: Event -> State -> IO State
 handleInfo (EventKey k ks _ pos) st = case (k, ks) of
@@ -90,23 +113,22 @@ handleInfo (EventKey k ks _ pos) st = case (k, ks) of
 handleInfo _ st = return st
 
 handleComplete :: Event -> State -> IO State
-handleComplete (EventKey k ks _ pos) st = case (k, ks) of
-  (SpecialKey KeyEnter, Up) -> return $ st {status = SelectLevel}
+handleComplete (EventKey k ks m pos) st = case (k, ks) of
+  (SpecialKey KeyEnter, Up) -> return $ st {status = SplashScreen}
+  (SpecialKey KeyDelete, Up) -> return $ st {player = init $ player st}
+  (Char '\x0008', Up) -> handleComplete (EventKey (SpecialKey KeyDelete) Up m pos) st
+  (Char c, Up) -> return $ if isLetter c then st {player = take 2 (player st) ++ [c]} else st 
   _ -> return st 
 handleComplete _ st = return st
 
 handleRunning :: Event -> State -> IO State
 handleRunning (EventKey k ks _ pos) = case (k, ks) of
   (SpecialKey KeySpace, Up) -> return . rotateSelection
-  (MouseButton LeftButton, Down) -> withScaledPoint grabSelection pos
-  (MouseButton LeftButton, Up) -> withScaledPoint dropSelection pos
+  (MouseButton LeftButton, Down) -> return . grabSelection pos
+  (MouseButton LeftButton, Up) -> return . dropSelection pos
   _ -> return
-handleRunning (EventMotion pos) = withScaledPoint dragSelection pos
+handleRunning (EventMotion pos) = return . dragSelection pos
 handleRunning _ = return
-
-withScaledPoint :: (Pict.Point -> State -> State) -> Pict.Point -> State -> IO State
-withScaledPoint func point state = return $ func scPoint state
-  where scPoint = scalePoint point $ winScale state
 
 rotateSelection :: State -> State
 rotateSelection st = st {selection = Sel.rotate <$> selection st}
@@ -142,3 +164,13 @@ floatDiv = (/) `on` fromIntegral
 
 levelNum :: State -> Int
 levelNum = (1+) . fromEnum . level
+
+toNextLevel :: State -> State
+toNextLevel st
+  | level st == maxBound = st
+  | otherwise = st {level = succ $ level st}
+
+toPreviousLevel :: State -> State
+toPreviousLevel st
+  | level st == minBound = st
+  | otherwise = st {level = pred $ level st}

@@ -33,8 +33,8 @@ renderGridSpace table = Pict.pictures [
 
 renderListSpace :: Table -> Pict.Picture
 renderListSpace table = Pict.pictures [
-    Pict.color Color.black $ Hex.hexagonRect 220 460,
-    Pict.color rugColor $ Hex.hexagonRect 210 450,
+    Pict.color Color.black $ Hex.rectangleBlunt 220 460,
+    Pict.color rugColor $ Hex.rectangleBlunt 210 450,
     TileList.render $ tileList table
   ]
 

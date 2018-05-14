@@ -103,6 +103,7 @@ handleSplash (EventKey k ks _ pos) st = case (k, ks) of
   (SpecialKey KeyEnter, Up) -> return $ newGame st
   (SpecialKey KeyRight, Up) -> return $ toNextLevel st
   (SpecialKey KeyLeft, Up) -> return $ toPreviousLevel st
+  (MouseButton LeftButton, Up) -> handleWidgetClick pos [Wid.NewGame, Wid.LeftArrow, Wid.RightArrow] st
   _ -> return st
 handleSplash _ st = return st
 
@@ -114,12 +115,25 @@ handleInfo _ st = return st
 
 handleComplete :: Event -> State -> IO State
 handleComplete (EventKey k ks m pos) st = case (k, ks) of
-  (SpecialKey KeyEnter, Up) -> return $ st {status = SplashScreen}
+  (SpecialKey KeyEnter, Up) -> submitScore st
   (SpecialKey KeyDelete, Up) -> return $ st {player = init $ player st}
   (Char '\x0008', Up) -> handleComplete (EventKey (SpecialKey KeyDelete) Up m pos) st
-  (Char c, Up) -> return $ if isLetter c then st {player = take 2 (player st) ++ [c]} else st 
+  (Char c, Up) -> return $ if isLetter c then st {player = take 2 (player st) ++ [c]} else st
+  (MouseButton LeftButton, Up) -> handleWidgetClick pos [Wid.Delete, Wid.Submit] st
   _ -> return st 
 handleComplete _ st = return st
+
+handleWidgetClick :: Pict.Point -> [Wid.Name] -> State -> IO State
+handleWidgetClick pos names st = case Wid.findClicked pos names of
+  Just Wid.NewGame -> return $ newGame st
+  Just Wid.LeftArrow -> return $ toPreviousLevel st
+  Just Wid.RightArrow -> return $ toNextLevel st
+  Just Wid.Delete -> return $ st {player = init $ player st}
+  Just Wid.Submit -> submitScore st
+  _ -> return st
+
+submitScore :: State -> IO State
+submitScore st = return $ st {status = SplashScreen} -- TODO
 
 handleRunning :: Event -> State -> IO State
 handleRunning (EventKey k ks _ pos) = case (k, ks) of

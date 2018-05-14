@@ -4,6 +4,7 @@ import qualified Hex
 import qualified Table
 import qualified Graphics.Gloss.Data.Picture as Pict
 import qualified Graphics.Gloss.Data.Color as Color
+import qualified Graphics.Gloss.Data.Point as Point
 import Text.Printf (printf)
 import Data.List (intercalate)
 
@@ -92,6 +93,16 @@ buttonColor = Color.light Color.blue
 
 labelColor :: Color.Color
 labelColor = Color.dark Color.azure
+
+-- click checking
+findClicked :: Pict.Point -> [Name] -> Maybe Name
+findClicked pos names = case filter (isClicked pos) names of
+  [] -> Nothing
+  (x:xs) -> Just x
+
+isClicked :: Pict.Point -> Name -> Bool
+isClicked pos name = Point.pointInBox pos (x - w/2, y - h/2) (x + w/2, y + h/2)
+  where (x, y, w, h) = shape name
 
 -- utility functions
 secsToString :: Float -> String

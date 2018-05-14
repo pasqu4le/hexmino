@@ -19,7 +19,7 @@ import Graphics.Gloss.Interface.IO.Game (playIO, Event(..), Key(..), SpecialKey(
 data State = State {
     status :: GameStatus,
     level :: GameLevel,
-    duration :: String, -- TODO: time tracking
+    duration :: Float,
     topTen :: [String], -- TODO: Scores list
     player :: String,
     gameTable :: Table.Table,
@@ -53,7 +53,7 @@ initialState :: Rand.StdGen -> State
 initialState gen = State {
     status = SplashScreen,
     level = Beginner,
-    duration = "01:12:51",
+    duration = 0,
     topTen = replicate 10 "PAS 01:12:51 X",
     player = "PAS",
     gameTable = Table.empty gen,
@@ -65,7 +65,7 @@ render :: State -> IO Pict.Picture
 render st = returnScaled st . (Table.render (gameTable st) :) $ case status st of
   SplashScreen -> [Wid.renderBanner, Wid.renderGameSelector $ level st, Wid.renderTopTen $ topTen st]
   Running -> [Wid.renderTime $ duration st, renderSelection st]
-  Complete -> [Wid.renderTimeRes $ duration st, Wid.renderNameSelector $ player st, Wid.renderTopTen $ topTen st]
+  Complete -> [Wid.renderCompleted $ duration st, Wid.renderNameSelector $ player st, Wid.renderTopTen $ topTen st]
   Info -> [Wid.renderBanner, Wid.renderInfo, Wid.renderTopTen $ topTen st]
 
 returnScaled :: State -> [Pict.Picture] -> IO Pict.Picture
@@ -156,7 +156,15 @@ checkCompleted state
 
 -- stepping
 step :: Float -> State -> IO State
-step secs st = return $ st {gameTable = Table.step secs $ gameTable st, selection = Sel.step secs <$> selection st}
+step secs st = return . stepDuration secs $ st {
+    gameTable = Table.step secs $ gameTable st,
+    selection = Sel.step secs <$> selection st
+  }
+
+stepDuration :: Float -> State -> State
+stepDuration secs st = case status st of
+  Running -> st {duration = secs + duration st}
+  _ -> st
 
 -- utils
 floatDiv :: Int -> Int -> Float

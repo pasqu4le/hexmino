@@ -115,6 +115,7 @@ hexagonChar r letter = thickLine (r/5) $ case toUpper letter of
   '8' -> [c, nw, ne, c, e, se, sw, w, c]
   '9' -> [sw, se, e, ne, nw, w, e]
   '>' -> [nw, c, sw]
+  '<' -> [ne, c, se]
   '_' -> [sw, se]
   ':' -> [se, c, sw, se]
   ' ' -> []

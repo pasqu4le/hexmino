@@ -4,66 +4,76 @@ import qualified Hex
 import qualified Table
 import qualified Graphics.Gloss.Data.Picture as Pict
 import qualified Graphics.Gloss.Data.Color as Color
+import Text.Printf (printf)
+import Data.List (intercalate)
+
+data Name = Banner | Level | RightArrow | LeftArrow | NewGame | Time | Completed |
+  TimeRes | Player | Delete | Submit | LeaderLabel | LeaderSep | LeaderEntry Int
+
+-- sizes and positions
+shape :: Name -> (Float, Float, Float, Float)
+shape name = case name of
+  Banner -> (Table.gridX, 100, 350, 80)
+  Level -> (Table.gridX, -100, 250, 30)
+  RightArrow -> (Table.gridX + 150, -100, 40, 40)
+  LeftArrow -> (Table.gridX - 150, -100, 40, 40)
+  NewGame -> (Table.gridX, -150, 150, 40)
+  Time -> (-270, 220, 160, 30)
+  Completed -> (Table.gridX, 120, 200, 30)
+  TimeRes -> (Table.gridX, 80, 300, 50)
+  Player -> (Table.gridX -30, -100, 90, 30)
+  Delete -> (Table.gridX +50, -100, 40, 30)
+  Submit -> (Table.gridX, -150, 150, 40)
+  LeaderLabel -> (Table.listX, 200, 200, 40)
+  LeaderSep -> (Table.listX, 180, 200, 5)
+  LeaderEntry n -> (Table.listX, 160 - 40 * fromIntegral n, 230, 45)
 
 -- rendering
-renderBanner :: Pict.Picture
-renderBanner = Pict.translate Table.gridX 100 $ Pict.pictures [
-    Pict.color Color.white $ Hex.rectangleBlunt w h,
-    Pict.color Color.black $ Hex.hexagonText w h "hexmino"
+renderButton :: Name -> String -> Pict.Picture
+renderButton name txt = Pict.translate x y $ Pict.pictures [
+    Pict.color buttonColor $ Hex.rectangleBlunt w h,
+    Pict.color Color.white $ Hex.hexagonText w h txt
   ]
-  where (w,h) = (350, 80)
+  where (x, y, w, h) = shape name
+
+renderLabel :: Name -> String -> Pict.Picture
+renderLabel name txt = Pict.translate x y $ Pict.pictures [
+    Pict.color labelColor $ Pict.rectangleSolid w h,
+    Pict.color Color.white $ Hex.hexagonText w h txt
+  ]
+  where (x, y, w, h) = shape name
+
+renderText :: Name -> String -> Pict.Picture
+renderText name = Pict.translate x y . Pict.color Color.white . Hex.hexagonText w h
+  where (x, y, w, h) = shape name
+
+renderBanner :: Pict.Picture
+renderBanner = renderText Banner "hexmino"
 
 renderGameSelector :: (Show a, Eq a, Enum a, Bounded a) => a -> Pict.Picture
 renderGameSelector sel = Pict.pictures [
-    Pict.translate Table.gridX (-100) . Pict.color labelColor $ Pict.rectangleSolid lw lh,
-    Pict.translate Table.gridX (-100) . Pict.color Color.white $ Hex.hexagonText lw lh txt,
-    Pict.translate Table.gridX (-150) . Pict.color buttonColor $ Hex.rectangleBlunt bw bh,
-    Pict.translate Table.gridX (-150) . Pict.color Color.white $ Hex.hexagonText bw bh "new game",
-    Pict.translate (Table.gridX - 150) (-100) buttonLeft,
-    Pict.translate (Table.gridX + 150) (-100) buttonRight
-  ]
-  where
-    (lw, lh) = (250, 30)
-    (bw, bh) = (150, 40)
-    txt = show sel
-    buttonLeft = if sel == minBound then Pict.Blank else arrowLeft
-    buttonRight = if sel == maxBound then Pict.Blank else arrowRight
-
-arrowLeft :: Pict.Picture
-arrowLeft = Pict.rotate 180 arrowRight
-
-arrowRight :: Pict.Picture
-arrowRight = Pict.pictures [
-    Pict.color buttonColor $ Hex.rectangleBlunt 40 40,
-    Pict.color Color.white $ Hex.hexagonText 40 40 ">"
+    renderLabel Level $ show sel,
+    renderButton NewGame "new game",
+    if sel == minBound then Pict.Blank else renderButton LeftArrow "<",
+    if sel == maxBound then Pict.Blank else renderButton RightArrow ">"
   ]
 
-renderTime :: String -> Pict.Picture
-renderTime = Pict.translate (-270) 220 . Pict.color Color.black . Hex.hexagonText 160 30
+renderTime :: Float -> Pict.Picture
+renderTime = renderLabel Time . secsToString
 
-renderTimeRes :: String -> Pict.Picture
-renderTimeRes time = Pict.pictures [
-    Pict.translate Table.gridX 120 . Pict.color Color.white $ Hex.hexagonText lw lh "completed in",
-    Pict.translate Table.gridX 80 . Pict.color labelColor $ Pict.rectangleSolid tw th,
-    Pict.translate Table.gridX 80 . Pict.color Color.white $ Hex.hexagonText tw th time
+renderCompleted :: Float -> Pict.Picture
+renderCompleted secs = Pict.pictures [
+    renderText Completed "completed in",
+    renderText TimeRes $ secsToString secs
   ]
-  where 
-    (lw, lh) = (200, 30)
-    (tw, th) = (300, 50)
 
 renderNameSelector :: String -> Pict.Picture
 renderNameSelector name = Pict.pictures [
-    Pict.translate (Table.gridX -30) (-100) . Pict.color labelColor $ Pict.rectangleSolid lw lh,
-    Pict.translate (Table.gridX -30) (-100) . Pict.color Color.white $ Hex.hexagonText lw lh txt,
-    Pict.translate (Table.gridX +50) (-100) . Pict.color buttonColor $ Hex.rectangleBlunt bw bh,
-    Pict.translate (Table.gridX +50) (-100) . Pict.color Color.white $ Hex.hexagonText bw bh "del",
-    Pict.translate Table.gridX (-150) . Pict.color buttonColor $ Hex.rectangleBlunt sw sh,
-    Pict.translate Table.gridX (-150) . Pict.color Color.white $ Hex.hexagonText sw sh "submit"
+    renderLabel Player txt,
+    renderButton Delete "del",
+    renderButton Submit "submit"
   ]
   where
-    (lw, lh) = (90, 30)
-    (bw, bh) = (40, 30)
-    (sw, sh) = (150, 40)
     l = length name
     txt = if l < 3 then name ++ ('_' : replicate (2-l) ' ') else take 3 name
 
@@ -71,17 +81,21 @@ renderInfo :: Pict.Picture
 renderInfo = Pict.Blank -- TODO
 
 renderTopTen :: [String] -> Pict.Picture
-renderTopTen topTen = Pict.pictures $ [
-    Pict.translate Table.listX 200 . Pict.color Color.white $ Hex.hexagonText bw bh "leaderboard",
-    Pict.translate Table.listX 180 . Pict.color labelColor $ Pict.rectangleSolid bw 5
-  ] ++ leads
-  where
-    (bw, bh) = (200, 40)
-    (lw, lh) = (230, 45)
-    leads = zipWith (Pict.translate Table.listX) [160,120..] $ map (Pict.color Color.white . Hex.hexagonText lw lh) topTen
+renderTopTen topTen = Pict.pictures [
+    renderText LeaderLabel "leaderboard",
+    renderLabel LeaderSep "",
+    Pict.pictures $ zipWith renderText (map LeaderEntry [0..]) topTen
+  ]
 
 buttonColor :: Color.Color
 buttonColor = Color.light Color.blue
 
 labelColor :: Color.Color
 labelColor = Color.dark Color.azure
+
+-- utility functions
+secsToString :: Float -> String
+secsToString secs = intercalate ":" vals
+  where
+    s = floor secs :: Int
+    vals = map (printf "%02d" . (`mod` 60)) [s `div` 3600, s `div` 60, s]

@@ -77,7 +77,7 @@ hexagonText w h txt = Pict.scale fa 1 . Pict.translate offset 0 $ Pict.pictures 
 
 
 hexagonChar :: Float -> Char -> Pict.Picture
-hexagonChar r letter = thickLine (r/5) $ case toUpper letter of
+hexagonChar r letter = thickLine (r/4) $ case toUpper letter of
   'A' -> [sw, w, nw, ne, e, w, e, se]
   'B' -> [e, se, sw, nw, ne, e, c]
   'C' -> [ne, nw, w, sw, se] 
@@ -117,7 +117,8 @@ hexagonChar r letter = thickLine (r/5) $ case toUpper letter of
   '>' -> [nw, c, sw]
   '<' -> [ne, c, se]
   '_' -> [sw, se]
-  ':' -> [se, c, sw, se]
+  '/' -> [sw, ne]
+  '?' -> [w, nw, ne, e, c, s]
   ' ' -> []
   _ -> [ne, e, w, sw, ne]
   where

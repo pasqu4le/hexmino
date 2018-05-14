@@ -54,7 +54,7 @@ initialState gen = State {
     status = SplashScreen,
     level = Beginner,
     duration = 0,
-    topTen = replicate 10 "PAS 01:12:51 X",
+    topTen = replicate 10 "PAS 01/12/51 X",
     player = "PAS",
     gameTable = Table.empty gen,
     selection = Nothing,
@@ -63,9 +63,9 @@ initialState gen = State {
 -- rendering functions
 render :: State -> IO Pict.Picture
 render st = returnScaled st . (Table.render (gameTable st) :) $ case status st of
-  SplashScreen -> [Wid.renderBanner, Wid.renderGameSelector $ level st, Wid.renderTopTen $ topTen st]
-  Running -> [Wid.renderTime $ duration st, renderSelection st]
-  Complete -> [Wid.renderCompleted $ duration st, Wid.renderNameSelector $ player st, Wid.renderTopTen $ topTen st]
+  SplashScreen -> [Wid.renderBanner, Wid.renderGameSelector $ level st, Wid.renderTopTen $ topTen st, Wid.renderInfoButton]
+  Running -> [Wid.renderTime $ duration st, renderSelection st, Wid.renderCloseGame]
+  Complete -> [Wid.renderCompleted $ duration st, Wid.renderNameSelector $ player st, Wid.renderTopTen $ topTen st, Wid.renderInfoButton]
   Info -> [Wid.renderBanner, Wid.renderInfo, Wid.renderTopTen $ topTen st]
 
 returnScaled :: State -> [Pict.Picture] -> IO Pict.Picture
@@ -103,13 +103,14 @@ handleSplash (EventKey k ks _ pos) st = case (k, ks) of
   (SpecialKey KeyEnter, Up) -> return $ newGame st
   (SpecialKey KeyRight, Up) -> return $ toNextLevel st
   (SpecialKey KeyLeft, Up) -> return $ toPreviousLevel st
-  (MouseButton LeftButton, Up) -> handleWidgetClick pos [Wid.NewGame, Wid.LeftArrow, Wid.RightArrow] st
+  (MouseButton LeftButton, Up) -> handleWidgetClick pos [Wid.NewGame, Wid.LeftArrow, Wid.RightArrow, Wid.Info] st
   _ -> return st
 handleSplash _ st = return st
 
 handleInfo :: Event -> State -> IO State
 handleInfo (EventKey k ks _ pos) st = case (k, ks) of
   (SpecialKey KeyEnter, Up) -> return $ st {status = SplashScreen}
+  (MouseButton LeftButton, Up) -> handleWidgetClick pos [Wid.CloseInfo] st
   _ -> return st 
 handleInfo _ st = return st
 
@@ -130,6 +131,9 @@ handleWidgetClick pos names st = case Wid.findClicked pos names of
   Just Wid.RightArrow -> return $ toNextLevel st
   Just Wid.Delete -> return $ st {player = init $ player st}
   Just Wid.Submit -> submitScore st
+  Just Wid.CloseInfo -> return $ st {status = SplashScreen}
+  Just Wid.CloseGame -> return $ st {status = SplashScreen, gameTable = Table.clear $ gameTable st}
+  Just Wid.Info -> return $ st {status = Info}
   _ -> return st
 
 submitScore :: State -> IO State
@@ -139,10 +143,15 @@ handleRunning :: Event -> State -> IO State
 handleRunning (EventKey k ks _ pos) = case (k, ks) of
   (SpecialKey KeySpace, Up) -> return . rotateSelection
   (MouseButton LeftButton, Down) -> return . grabSelection pos
-  (MouseButton LeftButton, Up) -> return . dropSelection pos
+  (MouseButton LeftButton, Up) -> handleRunningClick pos
   _ -> return
 handleRunning (EventMotion pos) = return . dragSelection pos
 handleRunning _ = return
+
+handleRunningClick :: Pict.Point -> State -> IO State
+handleRunningClick pos st = case selection st of
+  Just sel -> return $ dropSelection pos st
+  _ -> handleWidgetClick pos [Wid.CloseGame] st
 
 rotateSelection :: State -> State
 rotateSelection st = st {selection = Sel.rotate <$> selection st}
@@ -160,7 +169,11 @@ dropSelection point st = case selection st of
   _ -> st
 
 newGame :: State -> State
-newGame state = state {status = Running, gameTable = Table.newGame (levelNum state) $ gameTable state}
+newGame state = state {
+    status = Running, 
+    gameTable = Table.newGame (levelNum state) $ gameTable state,
+    duration = 0
+  }
 
 checkCompleted :: State -> State
 checkCompleted state

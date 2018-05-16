@@ -5,8 +5,8 @@ import qualified Selection as Sel
 import qualified Table
 import qualified Tile
 import qualified Widgets as Wid
+import qualified Score
 
-import Data.Char (isLetter)
 import Data.Function (on)
 import qualified System.Random as Rand
 import qualified System.Exit as Exit
@@ -18,16 +18,13 @@ import Graphics.Gloss.Interface.IO.Game (playIO, Event(..), Key(..), SpecialKey(
 
 data State = State {
     status :: GameStatus,
-    level :: GameLevel,
-    duration :: Float,
-    topTen :: [String], -- TODO: Scores list
-    player :: String,
+    score :: Score.Score,
+    topTen :: Score.Leaderboard,
     gameTable :: Table.Table,
     selection :: Maybe Sel.Selection,
     winScale :: Float
   }
-data GameLevel = Beginner | Average | Expert deriving (Show, Eq, Enum, Bounded)
-data GameStatus = SplashScreen | Running | Complete | Info
+data GameStatus = SplashScreen | Running | Complete | Info deriving (Show, Eq)
 
 -- scaling from this; NOTE: Game keeps track of window scaling, everything else will assume no scaling
 standardSize :: (Int, Int)
@@ -40,7 +37,8 @@ scalePoint point factor = (1/factor) PArith.* point
 run :: Opts.Options -> IO ()
 run opts = do
   gen <- Rand.getStdGen
-  playIO window background (Opts.fps opts) (initialState gen) render handleEvent step
+  state <- initialState gen
+  playIO window background (Opts.fps opts) state render handleEvent step
 
 -- gloss-starting functions
 window :: Gloss.Display
@@ -49,23 +47,25 @@ window = Gloss.InWindow "Hexmino" standardSize (50,50)
 background :: Color.Color
 background = Color.white
 
-initialState :: Rand.StdGen -> State
-initialState gen = State {
+initialState :: Rand.StdGen -> IO State
+initialState gen = do
+  sc <- Score.readPlayer
+  leaders <- Score.readTopTen
+  return $ State {
     status = SplashScreen,
-    level = Beginner,
-    duration = 0,
-    topTen = replicate 10 "PAS 01/12/51 X",
-    player = "PAS",
+    score = sc,
+    topTen = leaders,
     gameTable = Table.empty gen,
     selection = Nothing,
-    winScale = 1}
+    winScale = 1
+  }
 
 -- rendering functions
 render :: State -> IO Pict.Picture
 render st = returnScaled st . (Table.render (gameTable st) :) $ case status st of
-  SplashScreen -> [Wid.renderBanner, Wid.renderGameSelector $ level st, Wid.renderTopTen $ topTen st, Wid.renderInfoButton]
-  Running -> [Wid.renderTime $ duration st, renderSelection st, Wid.renderCloseGame]
-  Complete -> [Wid.renderCompleted $ duration st, Wid.renderNameSelector $ player st, Wid.renderTopTen $ topTen st, Wid.renderInfoButton]
+  SplashScreen -> [Wid.renderBanner, Wid.renderGameSelector $ score st, Wid.renderTopTen $ topTen st, Wid.renderInfoButton]
+  Running -> [Wid.renderTime $ score st, renderSelection st, Wid.renderCloseGame]
+  Complete -> [Wid.renderCompleted $ score st, Wid.renderNameSelector $ score st, Wid.renderTopTen $ topTen st, Wid.renderInfoButton]
   Info -> [Wid.renderBanner, Wid.renderInfo, Wid.renderTopTen $ topTen st]
 
 returnScaled :: State -> [Pict.Picture] -> IO Pict.Picture
@@ -101,8 +101,8 @@ changeScale (w, h) state = state {winScale = newScale}
 handleSplash :: Event -> State -> IO State
 handleSplash (EventKey k ks _ pos) st = case (k, ks) of
   (SpecialKey KeyEnter, Up) -> return $ newGame st
-  (SpecialKey KeyRight, Up) -> return $ toNextLevel st
-  (SpecialKey KeyLeft, Up) -> return $ toPreviousLevel st
+  (SpecialKey KeyRight, Up) -> return $ st {score = Score.toNextLevel $ score st}
+  (SpecialKey KeyLeft, Up) -> return $ st {score = Score.toPreviousLevel $ score st}
   (MouseButton LeftButton, Up) -> handleWidgetClick pos [Wid.NewGame, Wid.LeftArrow, Wid.RightArrow, Wid.Info] st
   _ -> return st
 handleSplash _ st = return st
@@ -117,9 +117,9 @@ handleInfo _ st = return st
 handleComplete :: Event -> State -> IO State
 handleComplete (EventKey k ks m pos) st = case (k, ks) of
   (SpecialKey KeyEnter, Up) -> submitScore st
-  (SpecialKey KeyDelete, Up) -> return $ st {player = init $ player st}
-  (Char '\x0008', Up) -> handleComplete (EventKey (SpecialKey KeyDelete) Up m pos) st
-  (Char c, Up) -> return $ if isLetter c then st {player = take 2 (player st) ++ [c]} else st
+  (SpecialKey KeyDelete, Up) -> return $ st {score = Score.delFromName $ score st}
+  (Char '\x0008', Up) -> return $ st {score = Score.delFromName $ score st}
+  (Char c, Up) -> return $ st {score = Score.addToName c $ score st}
   (MouseButton LeftButton, Up) -> handleWidgetClick pos [Wid.Delete, Wid.Submit] st
   _ -> return st 
 handleComplete _ st = return st
@@ -127,9 +127,9 @@ handleComplete _ st = return st
 handleWidgetClick :: Pict.Point -> [Wid.Name] -> State -> IO State
 handleWidgetClick pos names st = case Wid.findClicked pos names of
   Just Wid.NewGame -> return $ newGame st
-  Just Wid.LeftArrow -> return $ toPreviousLevel st
-  Just Wid.RightArrow -> return $ toNextLevel st
-  Just Wid.Delete -> return $ st {player = init $ player st}
+  Just Wid.LeftArrow -> return $ st {score = Score.toPreviousLevel $ score st}
+  Just Wid.RightArrow -> return $ st {score = Score.toNextLevel $ score st}
+  Just Wid.Delete -> return $ st {score = Score.delFromName $ score st}
   Just Wid.Submit -> submitScore st
   Just Wid.CloseInfo -> return $ st {status = SplashScreen}
   Just Wid.CloseGame -> return $ st {status = SplashScreen, gameTable = Table.clear $ gameTable st}
@@ -137,7 +137,9 @@ handleWidgetClick pos names st = case Wid.findClicked pos names of
   _ -> return st
 
 submitScore :: State -> IO State
-submitScore st = return $ st {status = SplashScreen} -- TODO
+submitScore st = do 
+  leaders <- Score.submit $ score st
+  return $ st {status = SplashScreen, topTen = leaders}
 
 handleRunning :: Event -> State -> IO State
 handleRunning (EventKey k ks _ pos) = case (k, ks) of
@@ -171,8 +173,8 @@ dropSelection point st = case selection st of
 newGame :: State -> State
 newGame state = state {
     status = Running, 
-    gameTable = Table.newGame (levelNum state) $ gameTable state,
-    duration = 0
+    gameTable = Table.newGame (Score.levelNum $ score state) $ gameTable state,
+    score = Score.clearTime $ score state
   }
 
 checkCompleted :: State -> State
@@ -183,29 +185,13 @@ checkCompleted state
 
 -- stepping
 step :: Float -> State -> IO State
-step secs st = return . stepDuration secs $ st {
+step secs st = return $ st {
     gameTable = Table.step secs $ gameTable st,
-    selection = Sel.step secs <$> selection st
+    selection = Sel.step secs <$> selection st,
+    score = stepTime $ score st
   }
-
-stepDuration :: Float -> State -> State
-stepDuration secs st = case status st of
-  Running -> st {duration = secs + duration st}
-  _ -> st
+  where stepTime = if status st == Running then Score.step secs else id
 
 -- utils
 floatDiv :: Int -> Int -> Float
 floatDiv = (/) `on` fromIntegral
-
-levelNum :: State -> Int
-levelNum = (1+) . fromEnum . level
-
-toNextLevel :: State -> State
-toNextLevel st
-  | level st == maxBound = st
-  | otherwise = st {level = succ $ level st}
-
-toPreviousLevel :: State -> State
-toPreviousLevel st
-  | level st == minBound = st
-  | otherwise = st {level = pred $ level st}

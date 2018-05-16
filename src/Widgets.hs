@@ -2,11 +2,10 @@ module Widgets where
 
 import qualified Hex
 import qualified Table
+import qualified Score
 import qualified Graphics.Gloss.Data.Picture as Pict
 import qualified Graphics.Gloss.Data.Color as Color
 import qualified Graphics.Gloss.Data.Point as Point
-import Text.Printf (printf)
-import Data.List (intercalate)
 
 data Name = Banner | Level | RightArrow | LeftArrow | NewGame | Time | Completed |
   TimeRes | Player | Delete | Submit | LeaderLabel | LeaderSep | LeaderEntry Int |
@@ -56,30 +55,32 @@ renderText name = Pict.translate x y . Pict.color Color.white . Hex.hexagonText 
 renderBanner :: Pict.Picture
 renderBanner = renderText Banner "hexmino"
 
-renderGameSelector :: (Show a, Eq a, Enum a, Bounded a) => a -> Pict.Picture
-renderGameSelector sel = Pict.pictures [
-    renderLabel Level $ show sel,
+renderGameSelector :: Score.Score -> Pict.Picture
+renderGameSelector score = Pict.pictures [
+    renderLabel Level $ show lvl,
     renderButton NewGame "new game",
-    if sel == minBound then Pict.Blank else renderButton LeftArrow "<",
-    if sel == maxBound then Pict.Blank else renderButton RightArrow ">"
+    if Score.isMinLevel lvl then Pict.Blank else renderButton LeftArrow "<",
+    if Score.isMaxLevel lvl then Pict.Blank else renderButton RightArrow ">"
   ]
+  where lvl = Score.level score
 
-renderTime :: Float -> Pict.Picture
-renderTime = renderLabel Time . secsToString
+renderTime :: Score.Score -> Pict.Picture
+renderTime = renderLabel Time . Score.showTime
 
-renderCompleted :: Float -> Pict.Picture
-renderCompleted secs = Pict.pictures [
+renderCompleted :: Score.Score -> Pict.Picture
+renderCompleted score = Pict.pictures [
     renderText Completed "completed in",
-    renderText TimeRes $ secsToString secs
+    renderText TimeRes $ Score.showTime score
   ]
 
-renderNameSelector :: String -> Pict.Picture
-renderNameSelector name = Pict.pictures [
+renderNameSelector :: Score.Score -> Pict.Picture
+renderNameSelector score = Pict.pictures [
     renderLabel Player txt,
     renderButton Delete "del",
     renderButton Submit "submit"
   ]
   where
+    name = Score.player score
     l = length name
     txt = if l < 3 then name ++ ('_' : replicate (2-l) ' ') else take 3 name
 
@@ -104,11 +105,11 @@ renderInfoButton = renderButton Info "?"
 renderCloseGame :: Pict.Picture
 renderCloseGame = renderButton CloseGame "<"
 
-renderTopTen :: [String] -> Pict.Picture
+renderTopTen :: Score.Leaderboard -> Pict.Picture
 renderTopTen topTen = Pict.pictures [
     renderText LeaderLabel "leaderboard",
     renderLabel LeaderSep "",
-    Pict.pictures $ zipWith renderText (map LeaderEntry [0..]) topTen
+    Pict.pictures . zipWith renderText (map LeaderEntry [0..]) $ map Score.display topTen
   ]
 
 buttonColor :: Color.Color
@@ -126,10 +127,3 @@ findClicked pos names = case filter (isClicked pos) names of
 isClicked :: Pict.Point -> Name -> Bool
 isClicked pos name = Point.pointInBox pos (x - w/2, y - h/2) (x + w/2, y + h/2)
   where (x, y, w, h) = shape name
-
--- utility functions
-secsToString :: Float -> String
-secsToString secs = intercalate "/" vals
-  where
-    s = floor secs :: Int
-    vals = map (printf "%02d" . (`mod` 60)) [s `div` 3600, s `div` 60, s]

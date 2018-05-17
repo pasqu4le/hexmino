@@ -3,7 +3,7 @@ module Options where
 import Options.Applicative
 import Data.Semigroup ((<>))
 
-data Options = Options {fps :: Int}
+newtype Options = Options {fps :: Int}
 
 -- argument parsing
 getOptions :: IO Options

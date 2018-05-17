@@ -3,7 +3,7 @@ module TileGrid where
 import qualified Tile
 import qualified Hex
 import qualified Data.Map.Strict as Map
-import Data.List (foldl1', foldl', sortOn)
+import Data.List (foldl', sortOn)
 import qualified System.Random as Rand
 import qualified Graphics.Gloss.Data.Color as Color
 import qualified Graphics.Gloss.Data.Picture as Pict

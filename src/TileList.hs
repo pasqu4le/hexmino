@@ -5,7 +5,7 @@ import qualified Hex
 import qualified Graphics.Gloss.Data.Picture as Pict
 import qualified Graphics.Gloss.Data.Color as Color
 
--- a stack of tiles and their destination (if they need to move)
+-- a stack of tiles and maybe their destination (if they need to move)
 data TileList = TileList {tiles :: [Tile.Tile], destinations :: [Maybe Pict.Point], level :: Int} deriving Show
 
 -- creation
@@ -74,7 +74,7 @@ moveTile secs tile (x,y)
     toCover = max 10 (secs * 15 * distance) -- distance to cover
 
 topPos :: Int -> Float
-topPos lvl = 220 - (spacing lvl) / 2
+topPos lvl = 220 - spacing lvl / 2
 
 spacing :: Int -> Float
 spacing lvl = 440 / (2 * fromIntegral lvl)

@@ -29,14 +29,15 @@ shape name = case name of
   LeaderSep -> (Table.listX, 180, 200, 5)
   LeaderEntry n -> (Table.listX, 160 - 40 * fromIntegral n, 230, 45)
   InfoLine n -> (Table.gridX, 40 - 35 * fromIntegral n, 470, 40)
-  Info -> (-320, -220, 30, 50)
+  Info -> (-280, -220, 100, 40)
   CloseInfo -> (Table.gridX, -150, 80, 40)
-  CloseGame -> (-320, -220, 30, 50)
+  CloseGame -> (-280, -220, 100, 40)
 
 -- rendering
 renderButton :: Name -> String -> Pict.Picture
 renderButton name txt = Pict.translate x y $ Pict.pictures [
     Pict.color buttonColor $ Hex.rectangleBlunt w h,
+    Pict.Color Color.white $ Hex.rectangleBluntLine w h,
     Pict.color Color.white $ Hex.hexagonText w h txt
   ]
   where (x, y, w, h) = shape name
@@ -100,10 +101,10 @@ infoText = [
   ]
 
 renderInfoButton :: Pict.Picture
-renderInfoButton = renderButton Info "?"
+renderInfoButton = renderButton Info "info"
 
 renderCloseGame :: Pict.Picture
-renderCloseGame = renderButton CloseGame "<"
+renderCloseGame = renderButton CloseGame "back"
 
 renderTopTen :: Score.Leaderboard -> Pict.Picture
 renderTopTen topTen = Pict.pictures [

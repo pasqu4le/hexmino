@@ -3,7 +3,6 @@ module Game where
 import qualified Options as Opts
 import qualified Selection as Sel
 import qualified Table
-import qualified Tile
 import qualified Widgets as Wid
 import qualified Score
 
@@ -14,7 +13,7 @@ import qualified Graphics.Gloss as Gloss
 import qualified Graphics.Gloss.Data.Color as Color
 import qualified Graphics.Gloss.Data.Picture as Pict
 import qualified Graphics.Gloss.Data.Point.Arithmetic as PArith
-import Graphics.Gloss.Interface.IO.Game (playIO, Event(..), Key(..), SpecialKey(..), KeyState(..), MouseButton(..))
+import Graphics.Gloss.Interface.IO.Game (playIO, Event(..), Key(..), SpecialKey(..), KeyState(..), MouseButton(..), Modifiers(..))
 
 data State = State {
     status :: GameStatus,
@@ -65,7 +64,7 @@ render :: State -> IO Pict.Picture
 render st = returnScaled st . (Table.render (gameTable st) :) $ case status st of
   SplashScreen -> [Wid.renderBanner, Wid.renderGameSelector $ score st, Wid.renderTopTen $ topTen st, Wid.renderInfoButton]
   Running -> [Wid.renderTime $ score st, renderSelection st, Wid.renderCloseGame]
-  Complete -> [Wid.renderCompleted $ score st, Wid.renderNameSelector $ score st, Wid.renderTopTen $ topTen st, Wid.renderInfoButton]
+  Complete -> [Wid.renderCompleted $ score st, Wid.renderNameSelector $ score st, Wid.renderTopTen $ topTen st]
   Info -> [Wid.renderBanner, Wid.renderInfo, Wid.renderTopTen $ topTen st]
 
 returnScaled :: State -> [Pict.Picture] -> IO Pict.Picture
@@ -103,14 +102,15 @@ handleSplash (EventKey k ks _ pos) st = case (k, ks) of
   (SpecialKey KeyEnter, Up) -> return $ newGame st
   (SpecialKey KeyRight, Up) -> return $ st {score = Score.toNextLevel $ score st}
   (SpecialKey KeyLeft, Up) -> return $ st {score = Score.toPreviousLevel $ score st}
-  (MouseButton LeftButton, Up) -> handleWidgetClick pos [Wid.NewGame, Wid.LeftArrow, Wid.RightArrow, Wid.Info] st
+  (Char 'i', Up) -> return $ st {status = Info} 
+  (MouseButton LeftButton, Up) -> handleWidgetClick pos st
   _ -> return st
 handleSplash _ st = return st
 
 handleInfo :: Event -> State -> IO State
 handleInfo (EventKey k ks _ pos) st = case (k, ks) of
   (SpecialKey KeyEnter, Up) -> return $ st {status = SplashScreen}
-  (MouseButton LeftButton, Up) -> handleWidgetClick pos [Wid.CloseInfo] st
+  (MouseButton LeftButton, Up) -> handleWidgetClick pos st
   _ -> return st 
 handleInfo _ st = return st
 
@@ -120,21 +120,33 @@ handleComplete (EventKey k ks m pos) st = case (k, ks) of
   (SpecialKey KeyDelete, Up) -> return $ st {score = Score.delFromName $ score st}
   (Char '\x0008', Up) -> return $ st {score = Score.delFromName $ score st}
   (Char c, Up) -> return $ st {score = Score.addToName c $ score st}
-  (MouseButton LeftButton, Up) -> handleWidgetClick pos [Wid.Delete, Wid.Submit] st
+  (MouseButton LeftButton, Up) -> handleWidgetClick pos st
   _ -> return st 
 handleComplete _ st = return st
 
-handleWidgetClick :: Pict.Point -> [Wid.Name] -> State -> IO State
-handleWidgetClick pos names st = case Wid.findClicked pos names of
-  Just Wid.NewGame -> return $ newGame st
-  Just Wid.LeftArrow -> return $ st {score = Score.toPreviousLevel $ score st}
-  Just Wid.RightArrow -> return $ st {score = Score.toNextLevel $ score st}
-  Just Wid.Delete -> return $ st {score = Score.delFromName $ score st}
-  Just Wid.Submit -> submitScore st
-  Just Wid.CloseInfo -> return $ st {status = SplashScreen}
-  Just Wid.CloseGame -> return $ st {status = SplashScreen, gameTable = Table.clear $ gameTable st}
-  Just Wid.Info -> return $ st {status = Info}
+handleWidgetClick :: Pict.Point -> State -> IO State
+handleWidgetClick pos st = case Wid.findClicked pos . buttonsInStatus $ status st of
+  Just name -> handleEvent (EventKey (keyFromWidget name) Up noMod (0,0)) st
   _ -> return st
+
+buttonsInStatus :: GameStatus -> [Wid.Name]
+buttonsInStatus status = case status of
+  SplashScreen -> [Wid.NewGame, Wid.LeftArrow, Wid.RightArrow, Wid.Info]
+  Running -> [Wid.CloseGame]
+  Complete -> [Wid.Delete, Wid.Submit]
+  Info -> [Wid.CloseInfo]
+
+keyFromWidget :: Wid.Name -> Key
+keyFromWidget name = case name of
+  Wid.NewGame -> SpecialKey KeyEnter
+  Wid.LeftArrow -> SpecialKey KeyLeft
+  Wid.RightArrow -> SpecialKey KeyRight
+  Wid.Delete -> SpecialKey KeyDelete
+  Wid.Submit -> SpecialKey KeyEnter
+  Wid.CloseInfo -> SpecialKey KeyEnter
+  Wid.CloseGame -> Char '\x0008'
+  Wid.Info ->  Char 'i'
+  _ -> SpecialKey KeyEsc -- something went wrong here
 
 submitScore :: State -> IO State
 submitScore st = do 
@@ -144,16 +156,20 @@ submitScore st = do
 handleRunning :: Event -> State -> IO State
 handleRunning (EventKey k ks _ pos) = case (k, ks) of
   (SpecialKey KeySpace, Up) -> return . rotateSelection
+  (Char '\x0008', Up) -> return . backToSpashScreen
   (MouseButton LeftButton, Down) -> return . grabSelection pos
   (MouseButton LeftButton, Up) -> handleRunningClick pos
   _ -> return
 handleRunning (EventMotion pos) = return . dragSelection pos
 handleRunning _ = return
 
+backToSpashScreen :: State -> State
+backToSpashScreen st = st {status = SplashScreen, gameTable = Table.clear $ gameTable st}
+
 handleRunningClick :: Pict.Point -> State -> IO State
 handleRunningClick pos st = case selection st of
   Just sel -> return $ dropSelection pos st
-  _ -> handleWidgetClick pos [Wid.CloseGame] st
+  _ -> handleWidgetClick pos st
 
 rotateSelection :: State -> State
 rotateSelection st = st {selection = Sel.rotate <$> selection st}
@@ -195,3 +211,6 @@ step secs st = return $ st {
 -- utils
 floatDiv :: Int -> Int -> Float
 floatDiv = (/) `on` fromIntegral
+
+noMod :: Modifiers
+noMod = Modifiers {shift = Up, ctrl = Up, alt = Up}

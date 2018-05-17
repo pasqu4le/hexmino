@@ -28,6 +28,10 @@ hexagonPath r = [(-r, 0), (-rx, ry), (rx, ry), (r, 0), (rx, -ry), (-rx, -ry)]
 rectangleBlunt :: Float -> Float -> Pict.Picture
 rectangleBlunt w h = Pict.polygon $ rectangleBluntPath w h
 
+rectangleBluntLine :: Float -> Float -> Pict.Picture
+rectangleBluntLine w h = Pict.line $ (x:xs) ++ [x]
+  where (x:xs) = rectangleBluntPath w h
+
 rectangleBluntPath :: Float -> Float -> Pict.Path
 rectangleBluntPath w h = [(-sw,hh),(-hw,sh),(-hw,-sh),(-sw,-hh),(sw,-hh),(hw,-sh),(hw,sh),(sw,hh)]
   where

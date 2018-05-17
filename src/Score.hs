@@ -24,7 +24,7 @@ readPlayer = do
   dataDir <- dataDirectory
   let filePath = dataDir </> "player"
   exists <- Dir.doesFileExist filePath
-  if exists then do
+  if exists then
     read <$> readFile filePath
   else
     return $ Score {player = "PAS", level = Beginner, time = 0}

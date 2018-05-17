@@ -48,6 +48,9 @@ extra-source-files:  README.md
 -- Constraint on the version of Cabal needed to build this package.
 cabal-version:       >=1.10
 
+source-repository head
+  type:              git
+  location:          git://github.com/pasqu4le/hexmino.git
 
 executable hexmino
   ghc-options:         -O2 -threaded

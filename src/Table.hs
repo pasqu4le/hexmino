@@ -11,7 +11,7 @@ import qualified Graphics.Gloss.Data.Picture as Pict
 data Table = Table {tileGrid :: Grid.TileGrid, tileList :: TileList.TileList, randGen :: Rand.StdGen} deriving Show
 
 empty :: Rand.StdGen -> Table
-empty gen = Table {tileGrid = Grid.empty 0, tileList = TileList.empty, randGen = gen}
+empty gen = Table {tileGrid = Grid.empty, tileList = TileList.empty, randGen = gen}
 
 -- displacements; NOTE: Table keeps track of the grid and list displacement, so both can assume they are centered
 gridX, listX :: Float
@@ -44,7 +44,7 @@ rugColor = Color.dark $ Color.dark Color.chartreuse
 -- manipulation functions
 newGame :: Int -> Table -> Table
 newGame level table = table {tileGrid = grid, tileList = TileList.fromList level lst, randGen = newGen}
-  where (grid, lst, newGen) = Grid.newGame (Grid.empty level) $ randGen table
+  where (grid, lst, newGen) = Grid.newGame level $ randGen table
 
 clear :: Table -> Table
 clear = empty . randGen
@@ -61,7 +61,7 @@ putTile tile (x,y) table = case Grid.pointToIndex (x-gridX,y) $ tileGrid table o
   Just idx -> putTileInGrid tile idx table
   _ -> putTileInList tile table
 
-putTileInGrid :: Tile.Tile -> Grid.Axial -> Table -> Table
+putTileInGrid :: Tile.Tile -> Grid.Index -> Table -> Table
 putTileInGrid tile idx table
   | Grid.indexIsEmpty idx $ tileGrid table = table {tileGrid = Grid.putTile tile idx $ tileGrid table}
   | otherwise = putTileInList tile table

@@ -3,9 +3,9 @@ module Tile where
 import qualified Hex
 import qualified Graphics.Gloss.Data.Color as Color
 import qualified Graphics.Gloss.Data.Picture as Pict
+import Math.Geometry.Grid.HexagonalInternal2 (HexDirection(..))
 
 data Tile = Tile {hexagon :: Hex.Hexagon, faces :: (Int, Int, Int)} deriving (Show)
-data Cardinal = North | NorthEast | SouthEast | South | SouthWest | NorthWest deriving (Eq, Enum, Bounded, Show)
 
 empty :: Float -> Tile
 empty size = Tile (Hex.Hexagon (0,0) size) (0,0,0)
@@ -64,26 +64,24 @@ moveTo point tile = tile {hexagon = Hex.moveTo point $ hexagon tile}
 moveBy :: Pict.Point -> Tile -> Tile
 moveBy point tile = tile {hexagon = Hex.moveBy point $ hexagon tile}
 
-sideValue :: Cardinal -> Tile -> Int
-sideValue car Tile {faces = (a,b,c)} = case car of
+sideValue :: HexDirection -> Tile -> Int
+sideValue dir Tile {faces = (a,b,c)} = case dir of
    North -> a
-   NorthEast -> a
-   SouthEast -> b
+   Northeast -> a
+   Southeast -> b
    South -> b
-   SouthWest -> c
-   NorthWest -> c
+   Southwest -> c
+   Northwest -> c
 
-opposedCardinal :: Cardinal -> Cardinal
-opposedCardinal car = case car of
-  North -> South
-  NorthEast -> SouthWest
-  SouthEast -> NorthWest
-  South -> North
-  SouthWest -> NorthEast
-  NorthWest -> SouthEast
-
-allCardinal :: [Cardinal]
-allCardinal = [minBound..maxBound]
+changeSide :: HexDirection -> Int -> Tile -> Tile
+changeSide dir val tile = case dir of
+  North -> tile {faces = (val, b, c)}
+  Northeast -> tile {faces = (val, b, c)}
+  Southeast -> tile {faces = (a, val, c)}
+  South -> tile {faces = (a, val, c)}
+  Southwest -> tile {faces = (a, b, val)}
+  Northwest -> tile {faces = (a, b, val)}
+  where (a, b, c) = faces tile
 
 -- utility functions
 facesRotations :: [Float]

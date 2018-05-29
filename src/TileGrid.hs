@@ -2,6 +2,7 @@ module TileGrid where
 
 import qualified Tile
 import qualified Hex
+
 import qualified Data.Map.Strict as Map
 import Data.List (foldl', sortOn)
 import qualified System.Random as Rand
@@ -45,7 +46,7 @@ matchSides (tileGrid, gen) (idxA, idxB) = case (sideA, sideB) of
     newTile = Tile.empty $ tileSize tileGrid
 
 adjustSide :: HexDirection -> Int -> Index -> TileGrid -> TileGrid
-adjustSide dir val idx = GridMap.adjust (Tile.changeSide dir val) idx
+adjustSide dir val = GridMap.adjust (Tile.changeSide dir val)
 
 randomInts :: Int -> Rand.StdGen -> ([Int], Rand.StdGen)
 randomInts 0 gen = ([], gen)
@@ -70,7 +71,7 @@ renderIndex col tileGrid idx = case GridMap.lookup idx tileGrid of
 
 renderEmpty :: Color.Color -> Index -> Float -> Pict.Picture
 renderEmpty col idx rad = Pict.color col $ Hex.render hex
-  where hex = Hex.Hexagon {Hex.center = indexCenter idx rad, Hex.radius = rad-1}
+  where hex = Hex.make (indexCenter idx rad) (rad-1)
 
 -- manipulation functions
 putTile :: Tile.Tile -> Index -> TileGrid -> TileGrid

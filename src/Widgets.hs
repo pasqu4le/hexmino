@@ -3,6 +3,8 @@ module Widgets where
 import qualified Hex
 import qualified Table
 import qualified Score
+
+import Control.Lens
 import qualified Graphics.Gloss.Data.Picture as Pict
 import qualified Graphics.Gloss.Data.Color as Color
 import qualified Graphics.Gloss.Data.Point as Point
@@ -63,7 +65,7 @@ renderGameSelector score = Pict.pictures [
     if Score.isMinLevel lvl then Pict.Blank else renderButton LeftArrow "<",
     if Score.isMaxLevel lvl then Pict.Blank else renderButton RightArrow ">"
   ]
-  where lvl = Score.level score
+  where lvl = view Score.level score
 
 renderTime :: Score.Score -> Pict.Picture
 renderTime = renderLabel Time . Score.showTime
@@ -81,7 +83,7 @@ renderNameSelector score = Pict.pictures [
     renderButton Submit "submit"
   ]
   where
-    name = Score.player score
+    name = view Score.player score
     l = length name
     txt = if l < 3 then name ++ ('_' : replicate (2-l) ' ') else take 3 name
 

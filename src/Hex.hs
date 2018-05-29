@@ -1,17 +1,33 @@
 module Hex where
 
+import Control.Lens
 import Data.Char (toUpper)
 import qualified Graphics.Gloss.Data.Picture as Pict
+import qualified Graphics.Gloss.Data.Point.Arithmetic as PArith
 
-data Hexagon = Hexagon {center :: Pict.Point, radius :: Float} deriving (Show)
+data Hexagon = Hexagon {
+    _center :: Pict.Point,
+    _radius :: Float
+  } deriving (Show)
+
+-- lenses 
+center :: Lens' Hexagon Pict.Point
+center = lens _center (\hexagon point -> hexagon {_center = point})
+
+radius :: Lens' Hexagon Float
+radius = lens _radius (\hexagon rd -> hexagon {_radius = rd})
+
+-- construction
+make :: Pict.Point -> Float -> Hexagon
+make ctr rd = Hexagon {_center = ctr, _radius = rd}
 
 -- rendering functions
 render :: Hexagon -> Pict.Picture
 render hex = Pict.translate x y $ renderCentered hex
-  where (x, y) = center hex
+  where (x, y) = hex ^. center
 
 renderCentered :: Hexagon -> Pict.Picture
-renderCentered = hexagonSolid . radius
+renderCentered = hexagonSolid . view radius
 
 hexagonSolidPointy :: Float -> Pict.Picture
 hexagonSolidPointy = Pict.rotate 30 . hexagonSolid
@@ -43,15 +59,14 @@ rectangleBluntPath w h = [(-sw,hh),(-hw,sh),(-hw,-sh),(-sw,-hh),(sw,-hh),(hw,-sh
 
 -- manupulation functions
 moveTo :: Pict.Point -> Hexagon -> Hexagon
-moveTo point hex = hex {center = point}
+moveTo = set center
 
 moveBy :: Pict.Point -> Hexagon -> Hexagon
-moveBy (x, y) hex = hex {center = (cx+x, cy+y)}
-  where (cx, cy) = center hex
+moveBy dif = over center (PArith.+ dif)
 
 -- utility functions
 hexagonHeight :: Hexagon -> Float
-hexagonHeight = heightFromRadius . radius
+hexagonHeight = heightFromRadius . view radius
 
 heightFromRadius :: Float -> Float
 heightFromRadius = (* sqrt 3)
@@ -62,7 +77,7 @@ contains pos hex
   | otherwise = False
 
 distanceFromCenter :: Pict.Point -> Hexagon -> Float
-distanceFromCenter pnt Hexagon {center = cnt} = pointsDistance pnt cnt
+distanceFromCenter pnt = pointsDistance pnt . view center
 
 pointsDistance :: Pict.Point -> Pict.Point -> Float
 pointsDistance (x1,y1) (x2,y2) = sqrt $ (x1-x2) ** 2 + (y1-y2) ** 2
